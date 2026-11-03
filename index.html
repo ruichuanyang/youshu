@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>有数 · 每日持有成本</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+<style>
+  :root { --green:#8bd421; --bg:#f2f3f5; --text:#1a1a1a; --text-2:#8a8f99; --r:20px; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .page { max-width:860px; margin:0 auto; padding:18px 16px 120px; }
+
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  h1 { font-size:30px; font-weight:800; letter-spacing:1px; }
+  .htools { display:flex; gap:8px; }
+  .icon-btn {
+    width:40px; height:40px; border-radius:50%; border:none; background:#fff; font-size:17px;
+    cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.06); display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn:active { background:#eee; }
+
+  .status {
+    display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-2);
+    padding:8px 14px; background:#fff; border-radius:14px; margin-bottom:16px;
+  }
+  .dot { width:8px; height:8px; border-radius:50%; background:#bbb; flex:0 0 auto; }
+  .dot.ok { background:var(--green); }
+  .dot.err { background:#e0483e; }
+  .status .grow { flex:1; }
+
+  .tabs { display:flex; gap:8px; margin-bottom:16px; align-items:center; flex-wrap:wrap; }
+  .tab { padding:8px 18px; border-radius:999px; border:none; background:#fff; font-size:14.5px; color:var(--text-2); cursor:pointer; font-weight:600; }
+  .tab.active { background:#111; color:#fff; }
+  .sort { margin-left:auto; padding:8px 10px; border-radius:12px; border:1px solid #e3e5e8; background:#fff; font-size:13.5px; color:var(--text-2); }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; }
+  @media (min-width:560px) { .grid { grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; } }
+  .card {
+    background:#fff; border-radius:var(--r); padding:16px; cursor:pointer; position:relative;
+    box-shadow:0 1px 4px rgba(0,0,0,.04); min-height:132px; display:flex; flex-direction:column;
+    transition:transform .12s;
+  }
+  .card:active { transform:scale(.985); }
+  .card .emoji { font-size:30px; margin-bottom:8px; }
+  .badge {
+    position:absolute; top:13px; right:13px; font-size:11px; font-weight:600; padding:3px 8px;
+    border-radius:999px; display:flex; align-items:center; gap:4px;
+  }
+  .badge.active { background:#f0fae0; color:#5ca310; }
+  .badge.sold { background:#f0f0f2; color:#8a8f99; }
+  .badge::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .card .name { font-size:15.5px; font-weight:700; margin-bottom:5px; line-height:1.25; }
+  .card .meta { font-size:13px; color:var(--text-2); margin-bottom:10px; }
+  .card .meta .days { margin-left:8px; }
+  .card .cost { font-size:19px; font-weight:800; margin-top:auto; }
+  .card .cost small { font-size:12px; font-weight:500; color:var(--text-2); }
+  .empty { text-align:center; color:var(--text-2); padding:70px 0; font-size:15px; grid-column:1/-1; }
+  .skeleton { background:#fff; border-radius:var(--r); height:132px; animation:pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:.55} 50%{opacity:1} }
+
+  .fab {
+    position:fixed; right:20px; bottom:calc(24px + env(safe-area-inset-bottom)); width:58px; height:58px;
+    border-radius:50%; background:#111; color:#fff; font-size:28px; border:none; cursor:pointer;
+    box-shadow:0 6px 18px rgba(0,0,0,.25); line-height:1; z-index:40;
+  }
+  .fab:active { background:#333; }
+
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:flex-end; justify-content:center; z-index:50; }
+  .overlay.show { display:flex; }
+  .sheet {
+    background:var(--bg); width:100%; max-width:560px; max-height:92vh; overflow-y:auto;
+    border-radius:24px 24px 0 0; padding:18px 18px calc(30px + env(safe-area-inset-bottom));
+    animation:up .22s ease; -webkit-overflow-scrolling:touch;
+  }
+  @media (min-width:600px) { .overlay{align-items:center;} .sheet{border-radius:24px; margin:16px;} }
+  @keyframes up { from{transform:translateY(40px);opacity:0} to{transform:none;opacity:1} }
+  .sheet-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .sheet-top .icon-btn { box-shadow:none; }
+
+  .detail-head { text-align:center; padding:8px 0 16px; }
+  .detail-head .emoji { font-size:48px; }
+  .detail-head .name { font-size:22px; font-weight:800; margin:6px 0 2px; }
+  .detail-head .big { font-size:34px; font-weight:800; }
+  .detail-head .big small { font-size:15px; font-weight:500; color:var(--text-2); }
+  .detail-head .sub { color:var(--text-2); font-size:14.5px; margin-top:5px; }
+  .panel { background:#fff; border-radius:var(--r); padding:16px; margin-bottom:12px; }
+  .panel h3 { font-size:15.5px; margin-bottom:10px; }
+  .row { display:flex; justify-content:space-between; padding:12px 2px; font-size:15.5px; }
+  .row + .row { border-top:1px solid #f0f1f3; }
+  .row .v { color:var(--text-2); }
+  #chart { width:100%; height:210px; display:block; }
+  .acts { display:flex; gap:10px; margin-top:4px; }
+  .btn { flex:1; padding:14px; border-radius:16px; border:none; font-size:15.5px; font-weight:700; cursor:pointer; }
+  .btn.primary { background:#111; color:#fff; }
+  .btn.danger { background:#fff; color:#e0483e; flex:0 0 auto; padding:14px 18px; }
+
+  .field { margin-bottom:12px; }
+  .field label { display:block; font-size:13.5px; color:var(--text-2); margin-bottom:6px; }
+  .field input, .field select {
+    width:100%; padding:12px 13px; border-radius:13px; border:1px solid #e3e5e8;
+    font-size:16px; background:#fff; font-family:inherit;
+  }
+  .field input:focus, .field select:focus { outline:2px solid var(--green); border-color:transparent; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hint { font-size:12.5px; color:var(--text-2); line-height:1.6; margin:-2px 0 12px; }
+  .hint a { color:#2f7cff; }
+
+  .toast {
+    position:fixed; left:50%; bottom:calc(100px + env(safe-area-inset-bottom)); transform:translateX(-50%);
+    background:#111; color:#fff; padding:10px 20px; border-radius:999px; font-size:13.5px;
+    opacity:0; transition:opacity .25s; pointer-events:none; z-index:99; max-width:86vw; text-align:center;
+  }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>有数</h1>
+    <div class="htools">
+      <button class="icon-btn" id="refreshBtn" title="刷新">⟳</button>
+      <button class="icon-btn" id="settingsBtn" title="设置">⚙</button>
+    </div>
+  </header>
+
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span class="grow" id="statusText">正在加载…</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="all">全部</button>
+    <button class="tab" data-tab="active">服役中</button>
+    <button class="tab" data-tab="sold">已卖出</button>
+    <select class="sort" id="sortSelect">
+      <option value="costDesc">日均成本 ↓</option>
+      <option value="costAsc">日均成本 ↑</option>
+      <option value="priceDesc">价格 ↓</option>
+      <option value="daysDesc">服役天数 ↓</option>
+      <option value="dateDesc">最近购买</option>
+    </select>
+  </div>
+
+  <div class="grid" id="grid">
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+  </div>
+</div>
+
+<button class="fab" id="addBtn">+</button>
+
+<div class="overlay" id="detailOverlay">
+  <div class="sheet">
+    <div class="sheet-top">
+      <button class="icon-btn" data-close="detailOverlay">✕</button>
+      <button class="icon-btn" id="detailEdit">✎</button>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<div class="overlay" id="formOverlay">
+  <div class="sheet">
+    <div class="sheet-top">
+      <div style="font-size:19px;font-weight:800" id="formTitle">添加物品</div>
+      <button class="icon-btn" data-close="formOverlay">✕</button>
+    </div>
+    <form id="itemForm">
+      <input type="hidden" id="fId">
+      <div class="field">
+        <label>名称</label>
+        <input id="fName" required placeholder="例如：iPhone 16">
+      </div>
+      <div class="two">
+        <div class="field"><label>买入价格（¥）</label><input id="fPrice" type="number" inputmode="decimal" min="0" step="0.01" required placeholder="0.00"></div>
+        <div class="field"><label>购买日期</label><input id="fBuyDate" type="date" required></div>
+      </div>
+      <div class="two">
+        <div class="field">
+          <label>类别</label>
+          <select id="fCategory">
+            <option>未分类</option><option>数码</option><option>家电</option><option>交通</option>
+            <option>服饰</option><option>家居</option><option>运动</option><option>其他</option>
+          </select>
+        </div>
+        <div class="field"><label>图标 emoji</label><input id="fEmoji" maxlength="4" placeholder="📦"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>卖出价格（可选）</label><input id="fSellPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="留空=服役中"></div>
+        <div class="field"><label>卖出日期（可选）</label><input id="fSellDate" type="date"></div>
+      </div>
+      <div class="hint">填了卖出价格即转为「已卖出」，日均成本 =（买入价 − 卖出价）÷ 持有天数。</div>
+      <button type="submit" class="btn primary" style="width:100%">保存</button>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="settingsOverlay">
+  <div class="sheet">
+    <div class="sheet-top">
+      <div style="font-size:19px;font-weight:800">设置</div>
+      <button class="icon-btn" data-close="settingsOverlay">✕</button>
+    </div>
+    <div class="hint">
+      浏览不需要任何设置。要<b>在手机上改数据并保存到 GitHub</b>，需要一个个人访问令牌（只存在你本机浏览器里，不会外传）：
+      <br>1. 打开 <a href="https://github.com/settings/tokens/new?scopes=repo&description=youshu" target="_blank">github.com/settings/tokens/new</a>
+      <br>2. 勾选 <b>repo</b>，有效期选 No expiration
+      <br>3. 生成后复制以 <code>ghp_</code> 或 <code>github_pat_</code> 开头的字符串，粘到下面
+    </div>
+    <div class="field"><label>GitHub Token</label><input id="tokenInput" type="password" placeholder="ghp_..."></div>
+    <div class="acts">
+      <button class="btn danger" id="clearToken">清除</button>
+      <button class="btn primary" id="saveToken">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const OWNER = "ruichuanyang";
+const REPO  = "youshu";
+const BRANCH = "main";
+const DATA_PATH = "data.json";
+const API = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${DATA_PATH}`;
+const RAW = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${DATA_PATH}`;
+const TOKEN_KEY = "youshu_token";
+
+let items = [];
+let sha = null;
+let currentTab = "all";
+let currentSort = "costDesc";
+let detailId = null;
+let token = localStorage.getItem(TOKEN_KEY) || "";
+let busy = false;
+
+/* ---------- 工具 ---------- */
+const $ = id => document.getElementById(id);
+const DAY = 86400000;
+function parseDate(s) { const a = s.split("-").map(Number); return new Date(a[0], a[1] - 1, a[2]); }
+function today() { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); }
+function toInputDate(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function money(n) { return "¥" + Number(n).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtDate(s) { const a = s.split("-"); return a[0] + "年" + Number(a[1]) + "月" + Number(a[2]) + "日"; }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+let toastTimer;
+function toast(msg, ms) {
+  const el = $("toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), ms || 2400);
+}
+function setStatus(state, text) {
+  $("dot").className = "dot" + (state ? " " + state : "");
+  $("statusText").textContent = text;
+}
+
+/* ---------- 计算（天数含头含尾） ---------- */
+function calc(it) {
+  const buy = parseDate(it.buyDate);
+  const sold = !!(it.sellDate && it.sellPrice !== null && it.sellPrice !== "");
+  const end = sold ? parseDate(it.sellDate) : today();
+  const days = Math.max(1, Math.round((end - buy) / DAY) + 1);
+  const basis = sold ? (it.price - Number(it.sellPrice)) : it.price;
+  return { sold, days, basis, daily: basis / days };
+}
+
+/* ---------- 拉取数据 ---------- */
+async function load(showSpinner) {
+  if (showSpinner) setStatus("", "正在从 GitHub 加载…");
+  try {
+    const r = await fetch(DATA_PATH + "?t=" + Date.now(), { cache: "no-store" });
+    if (r.ok) {
+      const d = await r.json();
+      items = Array.isArray(d) ? d : [];
+      const dt = new Date();
+      setStatus("ok", `${items.length} 件物品 · 更新于 ${String(dt.getHours()).padStart(2,"0")}:${String(dt.getMinutes()).padStart(2,"0")}` + (token ? " · 可编辑" : " · 只读（未设令牌）"));
+      render();
+      return;
+    }
+    throw new Error("HTTP " + r.status);
+  } catch (e) {
+    try {
+      const r2 = await fetch(RAW + "?t=" + Date.now(), { cache: "no-store" });
+      if (!r2.ok) throw new Error();
+      const d2 = await r2.json();
+      items = Array.isArray(d2) ? d2 : [];
+      setStatus("ok", items.length + " 件物品 · 来自 raw 源");
+      render();
+      return;
+    } catch (e2) {
+      items = [];
+      setStatus("err", "加载失败，检查网络后点右上角 ⟳ 重试");
+      render();
+    }
+  }
+}
+
+/* ---------- 写回 GitHub ---------- */
+function b64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+async function saveToGitHub(silent) {
+  if (!token) { openSettings(); toast("先配置 GitHub 令牌才能保存"); return false; }
+  if (busy) return false;
+  busy = true;
+  if (!silent) setStatus("", "正在保存到 GitHub…");
+  try {
+    // 先取最新 sha，避免冲突
+    let cur = null;
+    try {
+      const meta = await fetch(API + "?ref=" + BRANCH + "&t=" + Date.now(), {
+        headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" },
+        cache: "no-store"
+      });
+      if (meta.ok) cur = (await meta.json()).sha;
+    } catch (e) {}
+
+    const body = {
+      message: "更新数据 " + new Date().toLocaleString("zh-CN"),
+      content: b64(JSON.stringify(items, null, 2)),
+      branch: BRANCH
+    };
+    if (cur || sha) body.sha = cur || sha;
+
+    const res = await fetch(API, {
+      method: "PUT",
+      headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (res.status === 409) { // sha 过期，重试一次
+      const meta = await fetch(API + "?ref=" + BRANCH + "&t=" + Date.now(), { headers: { Authorization: "Bearer " + token } });
+      const m = await meta.json();
+      body.sha = m.sha;
+      const res2 = await fetch(API, {
+        method: "PUT",
+        headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!res2.ok) throw new Error((await res2.json()).message || "保存失败");
+    } else if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j.message || ("保存失败 HTTP " + res.status));
+    }
+
+    const dt = new Date();
+    setStatus("ok", `${items.length} 件物品 · 已保存 ${String(dt.getHours()).padStart(2,"0")}:${String(dt.getMinutes()).padStart(2,"0")}`);
+    toast("已保存到 GitHub");
+    return true;
+  } catch (e) {
+    setStatus("err", "保存失败：" + e.message);
+    toast("保存失败：" + e.message, 4000);
+    return false;
+  } finally {
+    busy = false;
+  }
+}
+
+/* ---------- 列表 ---------- */
+function render() {
+  const grid = $("grid");
+  if (!items.length) {
+    grid.innerHTML = '<div class="empty">还没有物品，点右下角 + 添加</div>';
+    return;
+  }
+  let list = items.map(it => ({ it, c: calc(it) }));
+  if (currentTab === "active") list = list.filter(x => !x.c.sold);
+  if (currentTab === "sold") list = list.filter(x => x.c.sold);
+  const sorters = {
+    costDesc: (a, b) => b.c.daily - a.c.daily,
+    costAsc: (a, b) => a.c.daily - b.c.daily,
+    priceDesc: (a, b) => b.it.price - a.it.price,
+    daysDesc: (a, b) => b.c.days - a.c.days,
+    dateDesc: (a, b) => b.it.buyDate.localeCompare(a.it.buyDate)
+  };
+  list.sort(sorters[currentSort]);
+
+  if (!list.length) { grid.innerHTML = '<div class="empty">这个分类下还没有物品</div>'; return; }
+
+  grid.innerHTML = list.map(({ it, c }) => `
+    <div class="card" data-id="${esc(it.id)}">
+      <span class="badge ${c.sold ? "sold" : "active"}">${c.sold ? "已卖出" : "服役中"}</span>
+      <div class="emoji">${esc(it.emoji || "📦")}</div>
+      <div class="name">${esc(it.name)}</div>
+      <div class="meta">${money(it.price)}<span class="days">${c.days}天</span></div>
+      <div class="cost">${money(c.daily)}<small>/天</small></div>
+    </div>`).join("");
+
+  grid.querySelectorAll(".card").forEach(el => el.onclick = () => openDetail(el.dataset.id));
+}
+
+/* ---------- 详情 ---------- */
+function openDetail(id) {
+  detailId = id;
+  const it = items.find(x => x.id === id);
+  if (!it) return;
+  const c = calc(it);
+  let rows = `
+    <div class="row"><span>价格</span><span class="v">${money(it.price)}</span></div>
+    <div class="row"><span>类别</span><span class="v">${esc(it.category || "未分类")}</span></div>
+    <div class="row"><span>购买日期</span><span class="v">${fmtDate(it.buyDate)}</span></div>`;
+  if (c.sold) {
+    rows += `
+    <div class="row"><span>已退役</span><span class="v">${fmtDate(it.sellDate)}</span></div>
+    <div class="row"><span>卖出价格</span><span class="v">${money(it.sellPrice)}</span></div>
+    <div class="row"><span>卖出日期</span><span class="v">${fmtDate(it.sellDate)}</span></div>
+    <div class="row"><span>实际花费</span><span class="v">${money(c.basis)}</span></div>`;
+  }
+  $("detailBody").innerHTML = `
+    <div class="detail-head">
+      <div class="emoji">${esc(it.emoji || "📦")}</div>
+      <div class="name">${esc(it.name)}</div>
+      <div class="big">${money(c.daily)}<small>/天</small></div>
+      <div class="sub">${c.sold ? "实际花费：" + money(c.basis) : "总价：" + money(it.price)}　已服役 ${c.days}天</div>
+    </div>
+    <div class="panel"><h3>日均成本</h3><canvas id="chart"></canvas></div>
+    <div class="panel">${rows}</div>
+    <div class="acts">
+      <button class="btn danger" id="delBtn">删除</button>
+      <button class="btn primary" id="editBtn2">编辑</button>
+    </div>`;
+  $("detailOverlay").classList.add("show");
+  drawChart($("chart"), it, c);
+  $("editBtn2").onclick = () => { closeOverlay("detailOverlay"); openForm(it); };
+  $("delBtn").onclick = async () => {
+    if (!confirm("确定删除「" + it.name + "」？")) return;
+    items = items.filter(x => x.id !== id);
+    closeOverlay("detailOverlay");
+    render();
+    await saveToGitHub();
+  };
+}
+$("detailEdit").onclick = () => { const it = items.find(x => x.id === detailId); closeOverlay("detailOverlay"); openForm(it); };
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => closeOverlay(b.dataset.close));
+document.querySelectorAll(".overlay").forEach(ov => ov.onclick = e => { if (e.target === ov) ov.classList.remove("show"); });
+function closeOverlay(id) { $(id).classList.remove("show"); }
+
+/* ---------- 曲线（对数坐标） ---------- */
+function drawChart(canvas, it, c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W || !H) return;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 6, padR = 40, padT = 12, padB = 24;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const days = c.days;
+  const logMax = Math.ceil(Math.log10(Math.max(c.basis, 10)));
+  const logMin = Math.floor(Math.log10(Math.max(Math.min(c.daily, 1), 0.1)));
+
+  const x = d => padL + (days === 1 ? plotW / 2 : (d - 1) / (days - 1) * plotW);
+  const y = v => padT + (logMax - Math.log10(Math.max(v, Math.pow(10, logMin)))) / (logMax - logMin) * plotH;
+
+  ctx.font = "10.5px -apple-system, sans-serif";
+  ctx.fillStyle = "#b5bac2";
+  ctx.strokeStyle = "#eceef1";
+  ctx.lineWidth = 1;
+  ctx.textAlign = "left";
+  for (let e = logMin; e <= logMax; e++) {
+    const yy = y(Math.pow(10, e));
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + plotW, yy); ctx.stroke();
+    ctx.setLineDash([]);
+    const v = Math.pow(10, e);
+    const label = e >= 4 ? Math.pow(10, e - 4) + "w" : e === 3 ? "1k" : String(v);
+    ctx.fillText(label, padL + plotW + 5, yy + 3.5);
+  }
+
+  const N = Math.min(days, 300);
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    const d = days === 1 ? 1 : 1 + Math.round(i * (days - 1) / (N - 1));
+    pts.push([x(d), y(c.basis / d)]);
+  }
+
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+  grad.addColorStop(0, "rgba(139,212,33,.45)");
+  grad.addColorStop(1, "rgba(139,212,33,.03)");
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  pts.forEach(p => ctx.lineTo(p[0], p[1]));
+  ctx.lineTo(pts[pts.length - 1][0], padT + plotH);
+  ctx.lineTo(pts[0][0], padT + plotH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  pts.forEach(p => ctx.lineTo(p[0], p[1]));
+  ctx.strokeStyle = "#8bd421";
+  ctx.lineWidth = 2.4;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+
+  ctx.fillStyle = "#b5bac2";
+  ctx.textAlign = "center";
+  const buy = parseDate(it.buyDate);
+  [0, .25, .5, .75, 1].forEach((t, i) => {
+    const d = new Date(buy.getTime() + t * (days - 1) * DAY);
+    const label = (i === 4 && !c.sold) ? "今天" : (d.getMonth() + 1) + "." + String(d.getDate()).padStart(2, "0");
+    ctx.fillText(label, padL + t * plotW, H - 6);
+  });
+}
+
+/* ---------- 表单 ---------- */
+function openForm(it) {
+  $("formTitle").textContent = it ? "编辑物品" : "添加物品";
+  $("fId").value = it ? it.id : "";
+  $("fName").value = it ? it.name : "";
+  $("fPrice").value = it ? it.price : "";
+  $("fBuyDate").value = it ? it.buyDate : toInputDate(new Date());
+  $("fCategory").value = it ? (it.category || "未分类") : "未分类";
+  $("fEmoji").value = it && it.emoji ? it.emoji : "";
+  $("fSellPrice").value = it && it.sellPrice != null ? it.sellPrice : "";
+  $("fSellDate").value = it && it.sellDate ? it.sellDate : "";
+  $("formOverlay").classList.add("show");
+}
+
+$("itemForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const id = $("fId").value || "it" + Date.now();
+  const sp = $("fSellPrice").value;
+  const sd = $("fSellDate").value;
+  const data = {
+    id,
+    name: $("fName").value.trim(),
+    price: Number($("fPrice").value),
+    buyDate: $("fBuyDate").value,
+    category: $("fCategory").value,
+    emoji: $("fEmoji").value.trim() || "📦",
+    sellPrice: sp === "" ? null : Number(sp),
+    sellDate: sp === "" ? null : (sd || toInputDate(new Date()))
+  };
+  if (!data.name) return;
+  const i = items.findIndex(x => x.id === id);
+  if (i >= 0) items[i] = data; else items.push(data);
+  closeOverlay("formOverlay");
+  render();
+  await saveToGitHub();
+});
+
+$("addBtn").onclick = () => openForm(null);
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  currentTab = b.dataset.tab;
+  render();
+});
+$("sortSelect").onchange = e => { currentSort = e.target.value; render(); };
+$("refreshBtn").onclick = () => load(true);
+
+/* ---------- 设置 ---------- */
+function openSettings() {
+  $("tokenInput").value = token;
+  $("settingsOverlay").classList.add("show");
+}
+$("settingsBtn").onclick = openSettings;
+$("saveToken").onclick = async () => {
+  token = $("tokenInput").value.trim();
+  if (token) localStorage.setItem(TOKEN_KEY, token); else localStorage.removeItem(TOKEN_KEY);
+  closeOverlay("settingsOverlay");
+  toast(token ? "令牌已保存，编辑可写回 GitHub" : "已清除令牌（只读模式）");
+  await load(false);
+};
+$("clearToken").onclick = () => {
+  token = "";
+  localStorage.removeItem(TOKEN_KEY);
+  $("tokenInput").value = "";
+  toast("已清除令牌（只读模式）");
+};
+
+/* ---------- 启动 ---------- */
+load(true);
+</script>
+</body>
+</html>
