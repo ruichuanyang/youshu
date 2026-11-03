@@ -1,0 +1,62 @@
+[
+  {
+    "id": "it1",
+    "name": "极米 H3S",
+    "price": 1929,
+    "buyDate": "2026-09-29",
+    "category": "家电",
+    "emoji": "📽️",
+    "sellPrice": null,
+    "sellDate": null
+  },
+  {
+    "id": "it2",
+    "name": "福士 MX5",
+    "price": 6099,
+    "buyDate": "2026-03-10",
+    "category": "数码",
+    "emoji": "🚗",
+    "sellPrice": null,
+    "sellDate": null
+  },
+  {
+    "id": "it3",
+    "name": "MacBook Air M2",
+    "price": 10999,
+    "buyDate": "2023-06-28",
+    "category": "数码",
+    "emoji": "💻",
+    "sellPrice": null,
+    "sellDate": null
+  },
+  {
+    "id": "it4",
+    "name": "iPhone 16",
+    "price": 4279,
+    "buyDate": "2025-06-03",
+    "category": "数码",
+    "emoji": "📱",
+    "sellPrice": null,
+    "sellDate": null
+  },
+  {
+    "id": "it5",
+    "name": "捷安特 TCR ADV2",
+    "price": 7700,
+    "buyDate": "2025-07-17",
+    "category": "运动",
+    "emoji": "🚴",
+    "sellPrice": null,
+    "sellDate": null
+  },
+  {
+    "id": "it6",
+    "name": "宝马 320i",
+    "price": 300000,
+    "buyDate": "2021-03-05",
+    "category": "交通",
+    "emoji": "🚙",
+    "sellPrice": 68000,
+    "sellDate": "2026-10-17"
+  }
+]
