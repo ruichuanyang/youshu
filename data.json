@@ -58,5 +58,15 @@
     "emoji": "🚙",
     "sellPrice": 68000,
     "sellDate": "2026-10-17"
+  },
+  {
+    "id": "it1793692410367",
+    "name": "极氪7X",
+    "price": 210000,
+    "buyDate": "2026-10-29",
+    "category": "未分类",
+    "emoji": "🚗",
+    "sellPrice": null,
+    "sellDate": null
   }
 ]
